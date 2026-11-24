@@ -1,3 +1,5 @@
+> **Superseded.** Replaced by `docs/requirements/2026-11-24_vaultline-requirements_v1.md`. Kept for history only.
+
 # Vaultline – Functional and Non-Functional Requirements
 
 > **Fictional company created for a course project.** Vaultline, Kestrel Groundworks LLC and Saffron Lane Hospitality Group LLC are not real. All data is sample data.

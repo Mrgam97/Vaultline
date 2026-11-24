@@ -1,3 +1,5 @@
+> **Superseded.** Replaced by `docs/requirements/2026-11-24_vaultline-requirements_v1.md`. Kept for history only.
+
 # Vaultline – Proposed Backlog (draft for review)
 
 > **Fictional company created for a course project.** Nothing here has been written to Jira yet.
