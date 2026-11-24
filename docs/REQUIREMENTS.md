@@ -2,10 +2,11 @@
 
 > **Fictional company created for a course project.** Vaultline, Kestrel Groundworks LLC and Saffron Lane Hospitality Group LLC are not real. All data is sample data.
 
-**Owner:** Product Owner · **Version:** 0.1 (draft) · **Date:** 22 November 2026 · **Cloud:** AWS (us-east-1)
+**Owner:** Product Owner · **Version:** 0.2 (draft for review) · **Date:** 24 November 2026 · **Cloud:** AWS (us-east-1)
 
 **Roles:**
 - **CA** = Client Admin
+- **CU** = Client User (new in v0.2)
 - **AB** = Account Broker
 - **CH** = Claims Handler
 - **CO** = Compliance Officer
@@ -18,7 +19,27 @@
 - **C** = Could
 - **W** = Won't (this release)
 
-**Working success metric (to confirm with the Founder):** **% of certificate of insurance requests self-served through the portal, without broker involvement.** Target: 70% within 3 months of a client going live.
+## What changed in v0.2
+
+- **New role: Client User (CU).** Site managers and restaurant managers who need certificates but must not see premiums, report claims or manage users.
+- **Certificates are now the core feature.** Clients request a certificate of insurance naming a certificate holder. Standard requests are issued automatically; anything that changes cover goes to the broker.
+- **Getting data in.** Brokers bulk-upload policies at launch; insurer feeds are a Later item.
+- **Renewals** go beyond reminders: brokers can send a renewal questionnaire.
+- **New section 3: future infrastructure requirements** (Now, Next, Later).
+- New requirements are FR-31 to FR-39 and NFR-28 to NFR-30. v0.1 IDs are unchanged so Jira links still work.
+
+## Product Owner assumptions (overrule any of these)
+
+| ID | Assumption | Why |
+|---|---|---|
+| A-01 | Success metric is % of certificate requests self-served, target 70% | Certificates are the most frequent, most urgent client pain, especially for contractors |
+| A-02 | A Client User role is needed | The people who need certificates are usually not the Client Admin |
+| A-03 | At launch, brokers bulk-upload PDFs and key policy data; insurer feeds come Later | Insurer integrations are slow to build and not needed to prove value |
+| A-04 | Certificates are generated on an ACORD 25-style template naming the holder; standard requests auto-issue, others need broker approval | Matches how US contractors actually use certificates, while keeping changes to cover with a licensed broker |
+| A-05 | Scale: 2 clients now, about 50 clients and 500 users in year 1, about 500 clients and 5,000 users by year 2 | Gives the architect a realistic target without over-building |
+| A-06 | Vaultline is a commission-based broker and the portal is free to clients | Working assumption from the Founder questions |
+
+**Working success metric (assumption A-01):** **% of certificate of insurance requests self-served through the portal, without broker involvement.** Target: 70% within 3 months of a client going live.
 
 ---
 
@@ -35,6 +56,8 @@ Every requirement has a **Must NOT** column: what a user must not be able to do.
 | FR-03 | Every API call is checked against the role permission matrix; anything not explicitly allowed is denied | All | M | No user can call an endpoint their role doesn't allow, even by crafting the request by hand | KAN-14 |
 | FR-04 | The tenant is taken only from the signed-in user's token | All | M | A user must not switch tenant by changing an ID, parameter, header or chat message | KAN-28 |
 | FR-05 | Platform Admin can create and disable staff accounts and assign roles | PA | S | PA must not read client documents or claims, or change their own role | KAN-15 |
+| FR-31 | Client Admin invites, edits and removes Client Users for their own company | CA | M | A Client Admin must not add users to another company or grant any staff role | – |
+| FR-32 | Client User can view policies (without premiums) and download or request certificates | CU | M | A Client User must not see premiums or financial details, report claims, upload documents or manage users | – |
 | FR-06 | Users can reset their password and re-enrol MFA | All | S | A reset link must not work after 30 minutes or be reused | – |
 
 ### 1.2 Client portal: policies and renewals
@@ -44,15 +67,21 @@ Every requirement has a **Must NOT** column: what a user must not be able to do.
 | FR-07 | The dashboard lists all of the client's policies: type, insurer, limits, deductible, premium, renewal date | CA | M | A client must not see any policy belonging to another client | KAN-16 |
 | FR-08 | Policy detail page shows the declarations page and policy wording as downloadable PDFs | CA | M | A client must not open another client's PDF, even with a guessed or copied link | – |
 | FR-09 | Renewal reminders by email and in-app at 60 and 30 days before expiry, copied to the assigned broker | CA, AB | S | Reminders must not be sent for cancelled policies or to anyone outside the client and their broker | KAN-18 |
+| FR-38 | Broker sends a renewal questionnaire (revenue, payroll, headcount, vehicles, locations); the Client Admin completes it online and the broker is notified | AB, CA | S | A Client User must not see or submit renewal financials | – |
+| FR-39 | Users choose how they receive notifications (email, in-app) | All | C | A user must not turn off security notifications such as new sign-ins | – |
 | FR-10 | Client can see who their Account Broker is and message them | CA | C | A client must not message or see other clients' brokers' caseloads | – |
 
 ### 1.3 Certificates of insurance (COIs)
 
 | ID | Requirement | Role | Priority | Must NOT | Jira |
 |---|---|---|---|---|---|
-| FR-11 | Client downloads a current certificate of insurance instantly as a PDF | CA | M | A client must not download a certificate for a policy that's expired, cancelled or not theirs | KAN-17 |
-| FR-12 | Client can request a certificate naming a certificate holder (for example a general contractor); the request goes to the broker if it needs a wording change | CA, AB | S | A client must not change policy terms or add additional insureds themselves | – |
-| FR-13 | Download links expire after 15 minutes | CA | M | An expired or forwarded link must not work | KAN-17 |
+| FR-11 | Client downloads a current general evidence-of-cover certificate instantly as a PDF | CA, CU | M | A client must not download a certificate for a policy that's expired, cancelled or not theirs | KAN-17 |
+| FR-12 | Client requests a certificate of insurance naming a certificate holder (for example a general contractor), generated on an ACORD 25-style template | CA, CU, AB | **M** | A client must not change policy terms or add additional insureds themselves | – |
+| FR-13 | Download links expire after 15 minutes | CA, CU | M | An expired or forwarded link must not work | KAN-17 |
+| FR-33 | A request that only names a holder (name and address) is issued automatically; a request asking for additional insured status, waiver of subrogation, primary and non-contributory wording or any change to cover goes to the broker | CA, CU, AB | M | A client must not self-issue a certificate that adds an additional insured or changes cover | – |
+| FR-34 | Broker sees a queue of certificate requests for their clients and can approve, edit or reject each one; the client is told the outcome | AB | M | A broker must not issue certificates for unassigned clients; an approved certificate must not show cover the policy doesn't have | – |
+| FR-35 | Clients save frequent certificate holders and reuse them | CA, CU | S | A client must not see another client's saved holders | – |
+| FR-36 | Every issued certificate is kept in a register (holder, date, policy, who issued it) and can be re-downloaded | CA, CU, AB, CO | S | A certificate must not be changed after issue; corrections create a new version | – |
 
 ### 1.4 Documents
 
@@ -60,6 +89,7 @@ Every requirement has a **Must NOT** column: what a user must not be able to do.
 |---|---|---|---|---|---|
 | FR-14 | Client uploads documents (PDF, JPG, PNG, up to 25 MB) into their own storage | CA | M | Unsupported, oversized or malware-infected files must not be accepted or made available | KAN-19, KAN-31 |
 | FR-15 | Broker uploads policy documents for an assigned client; the client sees them within 5 minutes, and they are added to that client's chatbot knowledge base | AB | M | A broker must not upload to, or view, an unassigned client | KAN-21 |
+| FR-37 | Broker bulk-uploads policy PDFs and enters key policy data (by form or CSV import) for one selected client at a time; the import is checked before it's saved | AB | M | An import must not write to any client other than the one selected; a CSV row naming a different client is rejected | KAN-21 |
 | FR-16 | Every document is tagged with its client, type and upload date, and can be searched by these | CA, AB | S | Search must not return documents from another client | – |
 
 ### 1.5 Claims
@@ -82,7 +112,7 @@ Every requirement has a **Must NOT** column: what a user must not be able to do.
 
 | ID | Requirement | Role | Priority | Must NOT | Jira |
 |---|---|---|---|---|---|
-| FR-23 | Client asks questions about their cover; answers come only from their own knowledge base | CA | M | The chatbot must not quote, summarise or hint at another client's documents or claims | KAN-24, KAN-25 |
+| FR-23 | Client asks questions about their cover; answers come only from their own knowledge base | CA, CU | M | The chatbot must not quote, summarise or hint at another client's documents or claims | KAN-24, KAN-25 |
 | FR-24 | Every answer cites the document and section it came from; if nothing relevant is found, the bot says so | CA | M | The bot must not invent a clause or answer without a citation | KAN-25 |
 | FR-25 | Questions about whether a claim is covered or will be paid get a standard hand-off reply and create a broker task | CA, AB | M | The bot must not say a claim is or isn't covered or will be paid | KAN-26 |
 | FR-26 | Prompts, retrieved text and responses pass through Bedrock Guardrails (prompt-attack filter, denied topic, grounding check) | CA | M | Instructions hidden in an uploaded document or chat message must not change the bot's rules or reveal data | KAN-27 |
@@ -127,7 +157,7 @@ Every requirement has a **Must NOT** column: what a user must not be able to do.
 | NFR-14 | Performance – certificates | Certificates download instantly | 95% of certificate downloads < 3 s | End-to-end test timing | M |
 | NFR-15 | Availability | Portal is available during US business hours | 99.5% monthly (course target) | CloudWatch Synthetics canary | S |
 | NFR-16 | Backup and recovery | Data can be restored after loss | RPO ≤ 24 h, RTO ≤ 4 h; Aurora backups and S3 versioning on | Restore test once per release | S |
-| NFR-17 | Scalability | Handles growth without redesign | 500 clients, 2,000 users, 50 concurrent chat sessions on serverless services | Load test | C |
+| NFR-17 | Scalability | Handles growth without redesign | 500 clients, 5,000 users, 100 concurrent chat sessions (assumption A-05) | Load test | S |
 | NFR-18 | Accessibility | Usable by people with disabilities | WCAG 2.2 AA | Automated accessibility tests plus a manual keyboard and screen-reader check | S |
 | NFR-19 | Usability | A new Client Admin can find and download a certificate without help | ≤ 3 clicks from sign-in; task success ≥ 90% in user testing | Moderated usability test (5 users) | S |
 | NFR-20 | Browser support | Works on current browsers and mobile | Latest 2 versions of Chrome, Edge, Safari, Firefox; responsive down to 375 px | Playwright cross-browser tests | S |
@@ -137,16 +167,39 @@ Every requirement has a **Must NOT** column: what a user must not be able to do.
 | NFR-24 | Cost | Stays within course budget | ≤ $20 a month in dev; AWS Budget alert at 80% | AWS Budgets | M |
 | NFR-25 | Compliance | Aligns with US state insurance data security expectations (Virginia Bureau of Insurance) | Documented controls mapping; incident response steps written down | Compliance page in Confluence | S |
 | NFR-26 | Data residency | All data stays in the US | Every resource in us-east-1; Bedrock model invoked in a US region | AWS Config rule, CDK review | S |
+| NFR-28 | Performance – certificates | Standard certificate requests are fast | Auto-issued certificate ready ≤ 60 s from request; broker-approved requests answered within 4 business hours | Timing in end-to-end tests; broker queue SLA report | M |
+| NFR-29 | Tenant onboarding | Adding a client is automated and repeatable | New client (bucket, key, knowledge base, database records) provisioned ≤ 15 min with no manual console steps | Provisioning runbook test | S |
+| NFR-30 | Correctness – certificates | Certificates match the policy | 0 certificates showing limits, dates or insurers that differ from the policy record | Automated comparison test on every generated certificate | M |
 | NFR-27 | Honesty (course) | Clearly fictional | Every page, seed file and sample PDF is labelled "SAMPLE – FICTIONAL" | Review checklist | M |
 
 ---
 
-## 3. Traceability
+## 3. Future infrastructure requirements
+
+Horizon: **Now** = needed for the course build · **Next** = year 1 (about 50 clients) · **Later** = year 2 (about 500 clients).
+
+| ID | Need | Horizon | Driver | What it means for the architecture |
+|---|---|---|---|---|
+| FI-01 | Automated tenant provisioning | Now | NFR-29, A-05 | Adding a client creates its bucket, KMS key, knowledge base and database records from one workflow, not by editing code |
+| FI-02 | Per-tenant AI retrieval at scale | Next | FR-23, NFR-01 | One knowledge base per client may hit AWS account quotas at hundreds of clients. Architect and security must choose between per-tenant knowledge bases (strong isolation) and a shared index with enforced tenant filters (cheaper, riskier) before year 1 |
+| FI-03 | Certificate generation service | Now | FR-12, FR-33, NFR-28 | Server-side PDF generation from policy data on an ACORD 25-style template, with a certificate register |
+| FI-04 | Email delivery | Now | FR-09, FR-38 | Transactional email (for example Amazon SES) with verified sending domain |
+| FI-05 | Environments | Now: dev, test · Next: staging · Later: production | NFR-23 | Separate AWS accounts per environment under AWS Organizations from Next |
+| FI-06 | Insurer integrations | Later | A-03 | An integration layer (queue plus adapters) for insurer data feeds, kept separate from the portal |
+| FI-07 | E-signature | Later | FR-38 | Signing renewal questionnaires and broker forms |
+| FI-08 | Single sign-on for larger clients | Later | FR-01 | Federate client identity providers into Cognito per tenant |
+| FI-09 | Data growth and archiving | Next | NFR-11 | About 200 documents per client per year (about 100,000 a year at 500 clients); S3 lifecycle to archive storage, database partitioning by tenant |
+| FI-10 | Disaster recovery in the US | Next | NFR-16, NFR-26 | Backups and S3 replication to a second US region |
+| FI-11 | Broker reporting | Next | FR-20 | Book-of-business reports from a read replica, not the live database |
+| FI-12 | Mobile use on job sites | Now: responsive · Later: installable web app | FR-32 | Certificate request flow must work one-handed on a phone |
+| FI-13 | Central security logging | Next | NFR-10, NFR-21 | A separate log-archive account that application roles can't write over |
+
+## 4. Traceability
 
 | Area | Functional | Non-functional | Jira epic |
 |---|---|---|---|
-| Identity and roles | FR-01 – FR-06 | NFR-03, NFR-06 | KAN-4 |
-| Client portal | FR-07 – FR-16 | NFR-12, NFR-14, NFR-18 – NFR-20 | KAN-5 |
+| Identity and roles | FR-01 – FR-06, FR-31, FR-32 | NFR-03, NFR-06 | KAN-4 |
+| Client portal | FR-07 – FR-16, FR-31 – FR-39 | NFR-12, NFR-14, NFR-18 – NFR-20 | KAN-5 |
 | Admin portal | FR-20 – FR-22 | NFR-12, NFR-18 | KAN-6 |
 | Claims | FR-17 – FR-19 | NFR-12 | KAN-7 |
 | AI chatbot | FR-23 – FR-27 | NFR-07, NFR-08, NFR-13 | KAN-8 |
@@ -154,12 +207,12 @@ Every requirement has a **Must NOT** column: what a user must not be able to do.
 | Compliance and audit | FR-28 – FR-30 | NFR-10, NFR-11, NFR-25, NFR-26 | KAN-10 |
 | Platform and DevOps | – | NFR-15 – NFR-17, NFR-22 – NFR-24 | KAN-11 |
 
-**Requirements with no Jira ticket yet:** FR-06, FR-08, FR-10, FR-12, FR-16, FR-19, FR-21, FR-27, FR-30. Each will be raised as a story with Given/When/Then acceptance criteria once priorities are confirmed.
+**Requirements with no Jira ticket yet:** FR-06, FR-08, FR-10, FR-12, FR-16, FR-19, FR-21, FR-27, FR-30, FR-31 – FR-36, FR-38, FR-39. Each will be raised as a story with Given/When/Then acceptance criteria once priorities are confirmed.
 
 ---
 
-## 4. Open questions
+## 5. Open questions
 
-1. Confirm the success metric: % of certificate of insurance requests self-served (target 70%)?
+1. Confirm or overrule assumptions A-01 to A-06.
 2. Confirm retention periods (NFR-11) with the Compliance Lead.
-3. Should FR-12 (certificates naming a holder) move from Should to Must for construction clients?
+3. FI-02: per-tenant knowledge bases versus a shared index with tenant filters. Decision needed from the architect and security before year 1.
